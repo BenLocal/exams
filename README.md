@@ -253,12 +253,24 @@ exams sources            列出数据源及其状态
 ## 开发
 
 ```bash
-make test     # 单元测试，全部离线，不需要数据库
+make test              # 全部测试；store 层没有数据库时自动跳过
 make vet
 make probe SOURCE=neea
 ```
 
-解析相关的测试用 `httptest` 喂固定 HTML，不依赖外网。
+采集器的测试用 `httptest` 喂固定 HTML，不依赖外网。
+
+**store 层的测试需要真数据库**，因为值得测的东西——`ON CONFLICT` 的语义、索引谓词、
+咨询锁、事务回滚——用一个假实现来测，测的就是那个假实现本身。
+
+```bash
+make test-db           # 起一个临时 postgres（端口 55433）
+make test-store
+make test-db-stop
+```
+
+这些测试**会 truncate 所有表**，所以库名必须含有 `test`，否则直接拒绝运行——
+指错数据库就是删数据。真要对着别的库跑，设 `TEST_DATABASE_URL_ALLOW_ANY=1`。
 
 **一次调用一个新解释器。** 复用 LState 会让脚本状态在轮次之间泄漏，而且 Lua VM 不是
 并发安全的，不同数据源并发抓取会撞上。每次 `list` / `detail` 都新建一个 state，
