@@ -1,0 +1,52 @@
+{{template "head" .}}
+
+{{if .Sources}}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>名称</th><th>标识</th><th>状态</th><th>调度</th><th>上次运行</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Sources}}
+      <tr>
+        <td>
+          {{dash .Name}}
+          {{if not .Registered}}
+            <div class="note">二进制中已无此采集器，不会被调度</div>
+          {{end}}
+        </td>
+        <td><code>{{.Key}}</code></td>
+        <td>
+          {{if .Enabled}}
+            <span class="pill ok">已启用</span>
+          {{else}}
+            <span class="pill muted">已停用</span>
+          {{end}}
+        </td>
+        <td>
+          {{if .Interval}}<code>{{.Interval}}</code>{{else}}<span class="note">默认</span>{{end}}
+        </td>
+        <td class="num">{{fmtTime .LastRunAt}}</td>
+        <td>
+          <form method="post" action="/sources/{{.Key}}/toggle" class="inline">
+            <button class="btn-sm" type="submit">{{if .Enabled}}停用{{else}}启用{{end}}</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty"><p>还没有注册任何数据源。</p></div>
+{{end}}
+
+<p class="note">
+  停用后不会再被自动调度，已有数据保留。
+  真实数据源的选择器若未验证通过，会在「抓取任务」页显示为失败或 0 条，
+  按提示用 <code>exams probe &lt;标识&gt;</code> 校正。
+</p>
+
+{{template "foot" .}}

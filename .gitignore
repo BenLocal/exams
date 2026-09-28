@@ -8,6 +8,12 @@
 *.so
 *.dylib
 
+# The server binary produced by `make build`.
+/exams
+
+# Pages saved by `exams probe --dump-html`, which are large and site-specific.
+/tmp/
+
 # Test binary, built with `go test -c`
 *.test
 

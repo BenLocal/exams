@@ -1,0 +1,91 @@
+{{template "head" .}}
+
+<form class="filters" method="get" action="/">
+  <input type="search" name="q" value="{{.Filter.Query}}" placeholder="搜索标题、摘要或正文…" aria-label="搜索">
+  {{/* Carry the active facets through a search so it narrows rather than resets. */}}
+  {{if .Filter.Source}}<input type="hidden" name="source" value="{{.Filter.Source}}">{{end}}
+  {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
+  {{if .Filter.Region}}<input type="hidden" name="region" value="{{.Filter.Region}}">{{end}}
+  {{if .Filter.Unread}}<input type="hidden" name="unread" value="1">{{end}}
+  <button class="primary" type="submit">搜索</button>
+  {{if .HasFilters}}<a class="btn" href="/">清除筛选</a>{{end}}
+</form>
+
+{{if .Facets.Categories}}
+<div class="chips">
+  <span class="chips-label">分类</span>
+  {{range .Facets.Categories}}
+    <a class="chip {{if $.IsActive "category" .Value}}on{{end}}"
+       href="{{$.ToggleURL "category" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Facets.Regions}}
+<div class="chips">
+  <span class="chips-label">地区</span>
+  {{range .Facets.Regions}}
+    <a class="chip {{if $.IsActive "region" .Value}}on{{end}}"
+       href="{{$.ToggleURL "region" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Facets.Sources}}
+<div class="chips">
+  <span class="chips-label">来源</span>
+  {{range .Facets.Sources}}
+    <a class="chip {{if $.IsActive "source" .Value}}on{{end}}"
+       href="{{$.ToggleURL "source" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
+  {{end}}
+  <a class="chip {{if .IsActive "unread" "1"}}on{{end}}"
+     href="{{.ToggleURL "unread" "1"}}">仅未读<span class="n">{{.Stats.UnreadExams}}</span></a>
+</div>
+{{end}}
+
+{{if .Page.Items}}
+<ul class="list">
+  {{range .Page.Items}}
+  <li class="item {{if not .IsRead}}unread{{end}}">
+    <a class="item-title" href="/exams/{{.ID}}">{{.Title}}</a>
+    <div class="item-meta">
+      <span class="badge src">{{dash .SourceName}}</span>
+      {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
+      {{if .Region}}<span class="badge">{{.Region}}</span>{{end}}
+      <span>发布 {{fmtTime .PublishedAt}}</span>
+      {{if .DeadlineAt}}<span class="deadline">报名截止 {{fmtTime .DeadlineAt}}</span>{{end}}
+    </div>
+    {{if .Summary}}<p class="item-summary">{{.Summary}}</p>{{end}}
+  </li>
+  {{end}}
+</ul>
+
+{{if gt .Page.TotalPages 1}}
+<nav class="pager" aria-label="分页">
+  {{if .Page.HasPrev}}<a href="{{.PageURL (sub .Page.Page 1)}}">上一页</a>{{end}}
+  {{range .PageNumbers}}
+    {{if eq . $.Page.Page}}
+      <span class="cur">{{.}}</span>
+    {{else}}
+      <a href="{{$.PageURL .}}">{{.}}</a>
+    {{end}}
+  {{end}}
+  {{if .Page.HasNext}}<a href="{{.PageURL (add .Page.Page 1)}}">下一页</a>{{end}}
+  <span class="pager-info">共 {{.Page.Total}} 条 · 第 {{.Page.Page}}/{{.Page.TotalPages}} 页</span>
+</nav>
+{{end}}
+
+{{else}}
+<div class="empty">
+  {{if .HasFilters}}
+    <p>没有匹配的考试信息。</p>
+    <p><a href="/">清除筛选条件</a></p>
+  {{else}}
+    <p>还没有抓取到任何考试信息。</p>
+    <p>到 <a href="/runs">抓取任务</a> 页面点「立即抓取」，
+       或确认数据源已启用（<a href="/sources">数据源</a>）。</p>
+  {{end}}
+</div>
+{{end}}
+
+{{template "foot" .}}

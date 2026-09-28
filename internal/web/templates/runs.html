@@ -1,0 +1,58 @@
+{{template "head" .}}
+
+<form class="filters" method="post" action="/runs/trigger">
+  <input type="hidden" name="next" value="/runs">
+  <select name="source" aria-label="选择数据源">
+    <option value="all">全部已启用的数据源</option>
+    {{range .Sources}}
+      {{if .Registered}}
+        <option value="{{.Key}}">{{.Name}}{{if not .Enabled}}（已停用）{{end}}</option>
+      {{end}}
+    {{end}}
+  </select>
+  <button class="primary" type="submit">立即抓取</button>
+</form>
+<p class="note">
+  抓取在后台执行，页面会立即返回。刷新本页查看结果。
+  通知发送：成功 {{.NotifOK}} 条{{if gt .NotifBad 0}}，失败 {{.NotifBad}} 条（失败会在下次抓取时重试）{{end}}。
+</p>
+
+{{if .Runs}}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>开始时间</th><th>数据源</th><th>状态</th>
+        <th>耗时</th><th>抓到</th><th>新增</th><th>更新</th><th>未变</th><th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Runs}}
+      <tr>
+        <td class="num">{{fmtTime (ptr .StartedAt)}}</td>
+        <td>{{dash .SourceName}}</td>
+        <td>
+          <span class="pill {{statusClass .Status}}">{{statusLabel .Status}}</span>
+        </td>
+        <td class="num">{{.DurationMS}} ms</td>
+        <td class="num">{{.Fetched}}</td>
+        <td class="num">{{.Inserted}}</td>
+        <td class="num">{{.Updated}}</td>
+        <td class="num">{{.Unchanged}}</td>
+        <td>
+          {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
+          {{if .Note}}<div class="note">{{.Note}}</div>{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty">
+  <p>还没有任何抓取记录。</p>
+  <p>点上面的「立即抓取」跑一次。</p>
+</div>
+{{end}}
+
+{{template "foot" .}}
