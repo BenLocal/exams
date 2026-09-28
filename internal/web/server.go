@@ -158,19 +158,51 @@ func (s *Server) sameOriginGuard(ctx context.Context, c *app.RequestContext) {
 
 var funcMap = template.FuncMap{
 	"fmtTime": func(t *time.Time) string { return model.FormatTime(t) },
+	// fmtDate renders the date alone. Announcements are filed by date, and the
+	// time is always the 09:00 anchor the parser applies, so showing it would
+	// be noise dressed as precision.
+	"fmtDate": func(t *time.Time) string {
+		if t == nil || t.IsZero() {
+			return "—"
+		}
+		return t.Format("2006-01-02")
+	},
+	"since": since,
 	"dash": func(s string) string {
 		if strings.TrimSpace(s) == "" {
 			return "—"
 		}
 		return s
 	},
-	"add": func(a, b int) int { return a + b },
-	"sub": func(a, b int) int { return a - b },
+	"hasPrefix": strings.HasPrefix,
+	"add":       func(a, b int) int { return a + b },
+	"sub":       func(a, b int) int { return a - b },
 	"join": func(parts []string) string {
 		if len(parts) == 0 {
 			return "—"
 		}
-		return strings.Join(parts, ", ")
+		return strings.Join(parts, "、")
+	},
+	// paragraphs splits stored body text so each paragraph can carry its own
+	// two-character first-line indent. Applying the indent to the whole block
+	// at once would only indent the first line of the entire announcement.
+	"paragraphs": func(body string) []string {
+		var out []string
+		for _, block := range strings.Split(body, "\n\n") {
+			// A single newline inside a block is a soft wrap, not a break.
+			p := strings.TrimSpace(strings.ReplaceAll(block, "\n", " "))
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	},
+	"fieldLabels": func(fields []string) []string {
+		out := make([]string, 0, len(fields))
+		for _, f := range fields {
+			out = append(out, fieldLabel(f))
+		}
+		return out
 	},
 	// ptr lets fmtTime handle non-pointer times from tables without every
 	// call site needing its own nullable wrapper.
@@ -188,18 +220,45 @@ var funcMap = template.FuncMap{
 		}
 		return status
 	},
+	// statusClass drives the ledger's text marks, not a pill badge.
 	"statusClass": func(status string) string {
 		switch status {
 		case model.StatusSuccess:
-			return "ok"
+			return "mark-ok"
 		case model.StatusFailed:
-			return "bad"
+			return "mark-bad"
 		case model.StatusEmpty:
-			return "warn"
+			return "mark-warn"
 		}
-		return "muted"
+		return "mark-idle"
 	},
 	"fieldLabel": fieldLabel,
+}
+
+// since renders how long ago something happened, in the register a person
+// would use when glancing at the board. A nil time means the thing has never
+// happened, which is worth saying plainly rather than rendering as a date.
+func since(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return "尚未抓取"
+	}
+	d := time.Since(*t)
+	switch {
+	case d < 0:
+		// Clock skew between the crawler's host and the reader's, or a
+		// timestamp a moment in the future.
+		return "刚刚"
+	case d < time.Minute:
+		return "刚刚"
+	case d < time.Hour:
+		return fmt.Sprintf("%d 分钟前", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d 小时前", int(d.Hours()))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%d 天前", int(d.Hours()/24))
+	default:
+		return t.Format("2006-01-02")
+	}
 }
 
 // fieldLabel renders a changed-field name in Chinese for the change history.

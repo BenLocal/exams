@@ -1,9 +1,15 @@
 {{/*
-  Shared layout partials.
+  Shared layout.
 
-  The stylesheet is inlined here rather than served as a static file: it keeps
-  the binary self-contained, removes a route, and means the page renders with
-  no network access at all — no CDN, no font fetch, nothing to fail.
+  The design reads as an official bulletin rather than a dashboard: white
+  paper, ink, hairline rules, and one seal-red accent. No cards, no shadows,
+  no rounded corners, no pill badges — that vocabulary belongs to SaaS and
+  says nothing about government notices.
+
+  The stylesheet is inlined so the binary stays self-contained and the page
+  renders with no network at all. No web fonts for the same reason: the type
+  stacks ask for 宋体 and 黑体, which are what a Chinese system already has
+  and what the documents being mirrored are printed in.
 */}}
 
 {{define "head"}}<!doctype html>
@@ -11,160 +17,326 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}} · 考试信息聚合</title>
+<title>{{.Title}} · 考试公告汇总</title>
 <style>
+/* ── tokens ─────────────────────────────────────────────────────────────── */
 :root{
-  color-scheme:light dark;
-  --bg:#f6f7f9; --fg:#1a1d21; --muted:#697077; --line:#e2e5e9;
-  --card:#fff; --accent:#2563eb; --accent-soft:#eff4ff;
-  --warn:#b45309; --warn-soft:#fef3c7; --ok:#15803d; --bad:#b91c1c;
-  --bad-soft:#fee2e2; --ok-soft:#dcfce7;
+  color-scheme: light dark;
+
+  --paper:      #ffffff;   /* official documents are printed on white */
+  --paper-sunk: #f4f4f1;   /* inset surfaces: table headers, fields */
+  --ink:        #16181a;
+  --ink-soft:   #5d6167;
+  --ink-faint:  #8b8f94;
+  --rule:       #e3e0d9;
+  --rule-mid:   #c9c5bc;
+  --seal:       #b3272d;   /* 印章红 — the only accent, used sparingly */
+  --seal-wash:  #f7ebeb;
+  --link:       #2f4858;
+
+  --serif: "Songti SC","STSong","SimSun","Noto Serif CJK SC",
+           "Source Han Serif SC",Georgia,serif;
+  --sans:  -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",
+           "Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+
+  /* One knob for the margin rule's inset, so the signature element and the
+     unread marks that ride on it can never drift apart. */
+  --gutter: 30px;
+  --sheet: 1040px;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --bg:#14171a; --fg:#e6e8ea; --muted:#9aa2ab; --line:#2b3036;
-    --card:#1c2024; --accent:#7ba7ff; --accent-soft:#1e293b;
-    --warn:#fbbf24; --warn-soft:#3a2e12; --ok:#4ade80; --bad:#f87171;
-    --bad-soft:#3b1d1d; --ok-soft:#14301d;
+    --paper:#15171a; --paper-sunk:#1d2024;
+    --ink:#e9e7e2; --ink-soft:#a1a6ac; --ink-faint:#7c8187;
+    --rule:#2b2f34; --rule-mid:#3d4249;
+    --seal:#d9605f; --seal-wash:#3a2021;
+    --link:#9db8c8;
   }
 }
-*{box-sizing:border-box}
+@media (max-width:640px){ :root{ --gutter:18px; } }
+
+/* ── base ───────────────────────────────────────────────────────────────── */
+*{ box-sizing:border-box }
+html{ -webkit-text-size-adjust:100% }
 body{
-  margin:0; background:var(--bg); color:var(--fg);
-  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",
-       "Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  margin:0; background:var(--paper); color:var(--ink);
+  font:16px/1.7 var(--serif);
 }
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-.wrap{max-width:940px; margin:0 auto; padding:0 16px}
-.topbar{background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:10}
-.topbar-inner{display:flex; align-items:center; gap:20px; height:52px}
-.brand{font-weight:600; color:var(--fg); font-size:16px}
-.topbar nav{display:flex; gap:16px; margin-left:auto}
-.topbar nav a{color:var(--muted); font-size:14px}
-.topbar nav a.active{color:var(--accent); font-weight:600}
-main{padding:20px 0 40px}
-.foot{color:var(--muted); font-size:12px; padding-bottom:24px}
+a{ color:var(--link); text-decoration:none }
+a:hover{ text-decoration:underline; text-underline-offset:3px }
+:focus-visible{ outline:2px solid var(--seal); outline-offset:2px; border-radius:0 }
+.sheet{ max-width:var(--sheet); margin:0 auto; padding:0 24px }
+@media (max-width:640px){ .sheet{ padding:0 16px } }
+.tabnum{ font-variant-numeric:tabular-nums }
 
-/* stat strip */
-.stats{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px}
-.stat{background:var(--card); border:1px solid var(--line); border-radius:10px;
-  padding:10px 14px; display:flex; flex-direction:column; min-width:88px}
-.stat-n{font-size:20px; font-weight:600; font-variant-numeric:tabular-nums}
-.stat-l{font-size:12px; color:var(--muted)}
-.stat.warn{border-color:var(--warn); background:var(--warn-soft)}
-.stat.warn .stat-n,.stat.warn .stat-l{color:var(--warn)}
-
-/* controls */
-.filters{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap}
-input[type=search],input[type=text],select{
-  flex:1 1 260px; min-width:0; padding:9px 12px; font:inherit; color:var(--fg);
-  background:var(--card); border:1px solid var(--line); border-radius:8px;
+/* ── top navigation ─────────────────────────────────────────────────────── */
+.topnav{
+  display:flex; gap:22px; align-items:baseline;
+  padding:18px 0 0; font:13px/1 var(--sans); letter-spacing:.08em;
 }
-input:focus,select:focus{outline:2px solid var(--accent); outline-offset:-1px}
-button,.btn{
-  padding:9px 16px; font:inherit; cursor:pointer; border-radius:8px;
-  border:1px solid var(--line); background:var(--card); color:var(--fg);
+.topnav a{ color:var(--ink-faint) }
+.topnav a:hover{ color:var(--ink); text-decoration:none }
+.topnav a[aria-current]{ color:var(--ink) }
+.topnav a[aria-current]::after{
+  content:""; display:block; height:2px; background:var(--seal); margin-top:6px;
 }
-button:hover,.btn:hover{border-color:var(--accent); color:var(--accent); text-decoration:none}
-button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
-button.primary:hover{opacity:.9; color:#fff}
-.btn-sm{padding:4px 10px; font-size:13px; border-radius:6px}
-.inline{display:inline}
 
-/* facet chips */
-.chips{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px}
-.chips-label{font-size:12px; color:var(--muted); min-width:32px}
-.chip{display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
-  border:1px solid var(--line); border-radius:999px; font-size:13px;
-  background:var(--card); color:var(--fg)}
-.chip .n{color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums}
-.chip.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent)}
-.chip.on .n{color:var(--accent)}
+/* ── masthead ───────────────────────────────────────────────────────────── */
+.masthead{ padding:14px 0 0 }
+.masthead h1{
+  font:600 34px/1.25 var(--serif); letter-spacing:.02em; margin:0;
+}
+/* On a sub-page the masthead is a running head, not the page's headline: it
+   must not compete with the document title in the body. */
+.masthead--page h1{ font:600 20px/1.4 var(--sans); letter-spacing:.06em; color:var(--ink-soft) }
+/* 粗细双线 — the thick-over-thin divider used on official documents. */
+.masthead::after{
+  content:""; display:block; margin-top:18px; height:5px;
+  border-top:3px solid var(--ink); border-bottom:1px solid var(--ink);
+}
+.statusline{
+  font:13px/1.6 var(--sans); color:var(--ink-faint);
+  letter-spacing:.04em; margin:0; padding:16px 0 30px;
+}
+.statusline .unread{ color:var(--seal) }
+@media (max-width:640px){ .masthead h1{ font-size:25px } }
 
-/* result list */
-.list{list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; gap:10px}
-.item{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
-.item.unread{border-left:3px solid var(--accent)}
-.item-title{font-size:16px; font-weight:600; color:var(--fg); display:block; margin-bottom:6px}
-.item.unread .item-title{color:var(--accent)}
-.item-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:12px; color:var(--muted)}
-.badge{padding:1px 8px; border-radius:999px; background:var(--bg); border:1px solid var(--line)}
-.badge.src{background:var(--accent-soft); border-color:var(--accent-soft); color:var(--accent)}
-.deadline{color:var(--warn); font-weight:600}
-.item-summary{margin:8px 0 0; color:var(--muted); font-size:14px;
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-.empty{background:var(--card); border:1px dashed var(--line); border-radius:10px;
-  padding:32px 16px; text-align:center; color:var(--muted)}
+/* ── the margin rule ────────────────────────────────────────────────────────
+   The signature. Chinese ledgers and official documents carry a ruled margin;
+   here it also carries information, because an unread notice hangs a tick off
+   it in seal red.
 
-/* pagination */
-.pager{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:18px; font-size:14px}
-.pager a,.pager span.cur{padding:4px 11px; border-radius:6px; border:1px solid var(--line); background:var(--card)}
-.pager span.cur{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600}
-.pager-info{color:var(--muted); font-size:12px; margin-left:auto}
+   The tick is deliberately short rather than a full-height segment. A segment
+   was the first attempt, and it fails in exactly the common case: with every
+   notice unread — a fresh install, or after a week away — the segments merge
+   into one solid red bar that reads as decoration and distinguishes nothing.
+   Ticks keep their rhythm whether one notice is unread or all of them are. */
+.content{ position:relative; padding-left:var(--gutter) }
+.content::before{
+  content:""; position:absolute; left:0; top:0; bottom:0;
+  width:1px; background:var(--rule-mid);
+}
+.unread-mark{ position:relative }
+.unread-mark::before{
+  content:""; position:absolute;
+  left:calc(var(--gutter) * -1 - 4px); top:9px;
+  width:9px; height:3px; background:var(--seal);
+}
 
-/* tables */
-.table-wrap{overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px}
-table{width:100%; border-collapse:collapse; font-size:14px}
-th,td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
-th{font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap}
-tr:last-child td{border-bottom:none}
-td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
-.pill{display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; white-space:nowrap}
-.pill.ok{background:var(--ok-soft); color:var(--ok)}
-.pill.bad{background:var(--bad-soft); color:var(--bad)}
-.pill.warn{background:var(--warn-soft); color:var(--warn)}
-.pill.muted{background:var(--bg); color:var(--muted)}
-.err{color:var(--bad); font-size:12px; word-break:break-word}
-.note{color:var(--muted); font-size:12px; word-break:break-word}
+/* ── filter index ───────────────────────────────────────────────────────── */
+.search{ display:flex; gap:0; margin:0 0 20px }
+.search input{
+  flex:1 1 auto; min-width:0; padding:9px 0;
+  font:15px/1.5 var(--sans); color:var(--ink);
+  background:transparent; border:0; border-bottom:1px solid var(--rule-mid);
+}
+.search input::placeholder{ color:var(--ink-faint) }
+.search input:focus{ outline:0; border-bottom-color:var(--seal) }
+/* The button shares the field's rule so the row reads as one ruled line
+   rather than a boxed control floating next to an underlined one. */
+.search .btn{
+  border:0; border-bottom:1px solid var(--rule-mid);
+  padding:9px 16px; color:var(--ink-soft);
+}
+.search .btn:hover{ color:var(--seal); border-bottom-color:var(--seal); text-decoration:none }
+.search .btn-primary{
+  border-bottom:1px solid var(--ink); background:transparent; color:var(--ink);
+}
+.search .btn-primary:hover{ color:var(--seal); border-bottom-color:var(--seal); opacity:1 }
+.search select{ border:0; border-bottom:1px solid var(--rule-mid); background:transparent }
 
-/* detail */
-.card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:14px}
-.detail-title{margin:0 0 10px; font-size:22px; line-height:1.4}
-.body-text{white-space:pre-wrap; word-break:break-word; margin:14px 0 0;
-  padding-top:14px; border-top:1px solid var(--line); font-size:15px}
-.actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px}
-.section-title{font-size:14px; color:var(--muted); margin:22px 0 8px}
-.kv{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; font-size:13px; margin-top:12px}
-.kv dt{color:var(--muted)}
-.kv dd{margin:0}
-@media (max-width:600px){
-  .topbar-inner{gap:12px}
-  .brand{font-size:15px}
-  .detail-title{font-size:19px}
+.facets{ margin:0 0 2px; display:flex; flex-wrap:wrap; gap:0 20px; align-items:baseline }
+.facets-label{
+  font:12px/1.9 var(--sans); color:var(--ink-faint);
+  letter-spacing:.14em; min-width:3.5em;
+}
+.facet{
+  font:14px/1.9 var(--sans); color:var(--ink-soft);
+  padding:0 0 2px; border-bottom:2px solid transparent;
+}
+.facet:hover{ color:var(--ink); text-decoration:none }
+.facet[aria-pressed="true"]{ color:var(--seal); border-bottom-color:var(--seal) }
+.facet .n{ color:var(--ink-faint); font-size:12px; margin-left:3px }
+.facet[aria-pressed="true"] .n{ color:var(--seal) }
+
+/* ── notice list ────────────────────────────────────────────────────────── */
+.notices{ list-style:none; margin:26px 0 0; padding:0 }
+.notice{ position:relative; padding:20px 0; border-bottom:1px solid var(--rule) }
+.notice:first-child{ border-top:1px solid var(--rule) }
+
+.eyebrow{
+  font:12px/1.6 var(--sans); color:var(--ink-faint);
+  letter-spacing:.1em; margin:0 0 7px;
+}
+.eyebrow .sep{ margin:0 7px; opacity:.5 }
+
+.notice-title{ margin:0; font:400 19px/1.5 var(--serif) }
+.notice-title a{ color:var(--ink) }
+.notice.is-read .notice-title a{ color:var(--ink-soft) }
+.notice-title a:hover{ color:var(--seal); text-decoration:none }
+
+/* 首行缩进两字 — the two-character first-line indent every Chinese document
+   body uses. It is what makes running text read as a notice rather than as
+   interface copy. */
+.notice-summary,
+.doc-body p{
+  text-indent:2em; margin:9px 0 0;
+  font:15px/1.85 var(--serif); color:var(--ink-soft);
+}
+.notice-summary{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.notice-meta{
+  font:12px/1.6 var(--sans); color:var(--ink-faint);
+  letter-spacing:.05em; margin:8px 0 0;
+}
+.notice-meta .due{ color:var(--seal) }
+
+/* ── pager ──────────────────────────────────────────────────────────────── */
+.pager{
+  display:flex; flex-wrap:wrap; gap:4px 16px; align-items:baseline;
+  margin-top:26px; padding-top:16px; border-top:3px solid var(--ink);
+  font:14px/1.8 var(--sans);
+}
+.pager a,.pager .cur{ color:var(--ink-soft); padding:0 2px }
+.pager a:hover{ color:var(--seal); text-decoration:none }
+.pager .cur{ color:var(--seal); font-weight:600 }
+.pager-info{ margin-left:auto; color:var(--ink-faint); font-size:12px }
+
+/* ── ledger tables ──────────────────────────────────────────────────────── */
+.ledger-wrap{ overflow-x:auto }
+.ledger{ width:100%; border-collapse:collapse; font:13px/1.6 var(--sans) }
+.ledger caption{
+  text-align:left; font:12px/1.6 var(--sans); color:var(--ink-faint);
+  letter-spacing:.14em; padding-bottom:10px;
+}
+.ledger th{
+  text-align:left; font-weight:500; color:var(--ink-faint);
+  letter-spacing:.08em; font-size:12px;
+  padding:8px 14px 8px 0; border-bottom:3px solid var(--ink);
+  white-space:nowrap;
+}
+.ledger td{
+  padding:10px 14px 10px 0; border-bottom:1px solid var(--rule);
+  vertical-align:top;
+}
+.ledger tr:last-child td{ border-bottom:0 }
+.ledger .num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap }
+.ledger .num:last-child,.ledger th:last-child,.ledger td:last-child{ padding-right:0 }
+
+/* Status reads as a text mark with a leading dash, not a pill badge. */
+.mark{ white-space:nowrap; color:var(--ink-soft) }
+.mark::before{
+  content:""; display:inline-block; width:7px; height:7px;
+  margin-right:7px; background:currentColor; vertical-align:baseline;
+}
+.mark-ok{ color:var(--ink-soft) }
+.mark-bad{ color:var(--seal) }
+.mark-warn{ color:var(--ink) }
+.mark-idle{ color:var(--ink-faint) }
+.mark-idle::before{ background:transparent; border:1px solid currentColor }
+
+.err{ color:var(--seal); font-size:12px }
+.note{ color:var(--ink-faint); font-size:12px }
+
+/* ── document (detail) ──────────────────────────────────────────────────── */
+.doc-title{ font:600 26px/1.45 var(--serif); margin:0 }
+@media (max-width:640px){ .doc-title{ font-size:21px } }
+.doc-meta{
+  display:grid; grid-template-columns:auto 1fr; gap:6px 20px;
+  font:13px/1.7 var(--sans); color:var(--ink-soft);
+  margin:20px 0 0; padding:16px 0;
+  border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+}
+.doc-meta dt{ color:var(--ink-faint) }
+.doc-meta dd{ margin:0 }
+.doc-body{ margin:24px 0 0 }
+.doc-actions{ display:flex; flex-wrap:wrap; gap:10px; margin:24px 0 0 }
+
+.revisions{ list-style:none; margin:14px 0 0; padding:0;
+  font:13px/1.7 var(--sans) }
+.revisions li{
+  display:flex; flex-wrap:wrap; gap:4px 16px; align-items:baseline;
+  padding:11px 0; border-bottom:1px solid var(--rule);
+}
+.revisions .when{ color:var(--ink-soft); font-variant-numeric:tabular-nums;
+  min-width:9.5em }
+.revisions .what{ color:var(--ink-faint) }
+
+.section-label{
+  font:12px/1.6 var(--sans); letter-spacing:.14em; color:var(--ink-faint);
+  margin:34px 0 0; padding-bottom:10px; border-bottom:1px solid var(--rule-mid);
+}
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+.btn{
+  font:14px/1 var(--sans); padding:9px 16px; cursor:pointer;
+  color:var(--ink); background:transparent;
+  border:1px solid var(--rule-mid); border-radius:0;
+}
+.btn:hover{ border-color:var(--ink); text-decoration:none }
+.btn-primary{ color:var(--paper); background:var(--ink); border-color:var(--ink) }
+.btn-primary:hover{ opacity:.86; color:var(--paper) }
+.btn-sm{ font-size:13px; padding:5px 11px }
+.inline{ display:inline }
+select{
+  padding:8px 10px; font:14px/1 var(--sans); color:var(--ink);
+  background:var(--paper-sunk); border:1px solid var(--rule-mid);
+  border-radius:0;
+}
+
+/* ── empty & footer ─────────────────────────────────────────────────────── */
+.empty{ padding:60px 0 20px; color:var(--ink-soft); font-size:15px }
+.empty p{ margin:0 0 10px; text-indent:2em }
+.foot{
+  margin-top:70px; padding:18px 0 40px;
+  border-top:1px solid var(--rule);
+  font:12px/1.7 var(--sans); color:var(--ink-faint); letter-spacing:.04em;
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{ transition:none !important; animation:none !important }
 }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="wrap topbar-inner">
-    <a class="brand" href="/">考试信息聚合</a>
-    <nav>
-      <a href="/" class="{{if eq .Nav "index"}}active{{end}}">列表</a>
-      <a href="/runs" class="{{if eq .Nav "runs"}}active{{end}}">抓取任务</a>
-      <a href="/sources" class="{{if eq .Nav "sources"}}active{{end}}">数据源</a>
-    </nav>
-  </div>
+<div class="sheet">
+
+<nav class="topnav">
+  <a href="/" {{if eq .Nav "index"}}aria-current="page"{{end}}>公告</a>
+  <a href="/runs" {{if eq .Nav "runs"}}aria-current="page"{{end}}>抓取日志</a>
+  <a href="/sources" {{if eq .Nav "sources"}}aria-current="page"{{end}}>来源</a>
+</nav>
+
+<header class="masthead{{if .Compact}} masthead--page{{end}}">
+  <h1>{{.Title}}</h1>
 </header>
-<main class="wrap">
-<div class="stats">
-  <div class="stat"><span class="stat-n">{{.Stats.TotalExams}}</span><span class="stat-l">公告总数</span></div>
-  <div class="stat"><span class="stat-n">{{.Stats.UnreadExams}}</span><span class="stat-l">未读</span></div>
-  <div class="stat"><span class="stat-n">{{.Stats.SourceCount}}</span><span class="stat-l">数据源</span></div>
-  {{if gt .Stats.FailingSources 0}}
-  <div class="stat warn">
-    <span class="stat-n">{{.Stats.FailingSources}}</span>
-    <span class="stat-l">数据源最近一次抓取失败</span>
-  </div>
-  {{end}}
-</div>
+
+{{/*
+  The status line answers one question — "do I need to look?" — in a single
+  reading, and reads as a document's metadata rather than as the top of a
+  dashboard. It sits above the margin rule because it describes the whole
+  board, not the notices hanging off the rule.
+*/}}
+<p class="statusline">
+  <span class="tabnum">{{.Stats.SourceCount}}</span> 个来源 ·
+  <span class="tabnum">{{.Stats.TotalExams}}</span> 条公告{{if gt .Stats.UnreadExams 0}} ·
+  <span class="unread tabnum">{{.Stats.UnreadExams}} 条未读</span>{{end}} ·
+  最近抓取 {{since .Stats.LastCrawlAt}}{{if gt .Stats.FailingSources 0}} ·
+  <span class="unread tabnum">{{.Stats.FailingSources}} 个来源抓取异常</span>{{end}}
+</p>
+
+<div class="content">
 {{end}}
 
 {{define "foot"}}
-</main>
-<footer class="wrap foot">
-  考试信息聚合 · 数据来自各来源官网，请以官网原文为准
+</div>
+<footer class="foot">
+  数据来自各来源官网，仅供查阅；以官网原文为准。
 </footer>
+</div>
 </body>
 </html>
 {{end}}

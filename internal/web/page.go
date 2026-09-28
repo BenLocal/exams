@@ -23,6 +23,9 @@ type baseView struct {
 	Title string
 	Nav   string
 	Stats model.Stats
+	// Compact renders the masthead as a running head. It is set on sub-pages,
+	// whose real headline lives in the body and must not compete with it.
+	Compact bool
 }
 
 type listView struct {
@@ -159,7 +162,7 @@ func (s *Server) handleIndex(ctx context.Context, c *app.RequestContext) {
 	}
 
 	s.render(c, 200, "index.html", listView{
-		baseView:    baseView{Title: "考试信息", Nav: "index", Stats: stats},
+		baseView:    baseView{Title: "考试公告", Nav: "index", Stats: stats},
 		Facets:      facets,
 		Filter:      filter,
 		Page:        page,
@@ -195,7 +198,7 @@ func (s *Server) handleDetail(ctx context.Context, c *app.RequestContext) {
 	}
 
 	s.render(c, 200, "detail.html", detailView{
-		baseView: baseView{Title: exam.Title, Nav: "index", Stats: stats},
+		baseView: baseView{Title: "公告详情", Compact: true, Nav: "index", Stats: stats},
 		Exam:     exam,
 		Changes:  changes,
 	})
@@ -251,7 +254,7 @@ func (s *Server) handleRuns(ctx context.Context, c *app.RequestContext) {
 	}
 
 	s.render(c, 200, "runs.html", runsView{
-		baseView: baseView{Title: "抓取任务", Nav: "runs", Stats: stats},
+		baseView: baseView{Title: "抓取日志", Compact: true, Nav: "runs", Stats: stats},
 		Runs:     runs, Sources: sources,
 		NotifOK: sent, NotifBad: failed,
 	})
@@ -301,7 +304,7 @@ func (s *Server) handleSources(ctx context.Context, c *app.RequestContext) {
 	}
 
 	s.render(c, 200, "sources.html", sourcesView{
-		baseView: baseView{Title: "数据源", Nav: "sources", Stats: stats},
+		baseView: baseView{Title: "来源", Compact: true, Nav: "sources", Stats: stats},
 		Sources:  sources,
 	})
 }

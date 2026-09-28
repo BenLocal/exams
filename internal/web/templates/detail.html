@@ -1,78 +1,55 @@
 {{template "head" .}}
 
-<article class="card">
-  <h1 class="detail-title">{{.Exam.Title}}</h1>
+<article>
+  <p class="eyebrow">
+    {{dash .Exam.SourceName}}{{if .Exam.Category}}<span class="sep">·</span>{{.Exam.Category}}{{end}}{{if .Exam.Region}}<span class="sep">·</span>{{.Exam.Region}}{{end}}
+  </p>
+  <h2 class="doc-title">{{.Exam.Title}}</h2>
 
-  <div class="item-meta">
-    <span class="badge src">{{dash .Exam.SourceName}}</span>
-    {{if .Exam.Category}}<span class="badge">{{.Exam.Category}}</span>{{end}}
-    {{if .Exam.Region}}<span class="badge">{{.Exam.Region}}</span>{{end}}
-    <span>发布 {{fmtTime .Exam.PublishedAt}}</span>
-    {{if .Exam.DeadlineAt}}<span class="deadline">报名截止 {{fmtTime .Exam.DeadlineAt}}</span>{{end}}
-  </div>
-
-  <dl class="kv">
-    {{if .Exam.PublishedRaw}}<dt>来源原日期</dt><dd>{{.Exam.PublishedRaw}}</dd>{{end}}
-    <dt>首次抓到</dt><dd>{{fmtTime (ptr .Exam.FirstSeenAt)}}</dd>
-    <dt>最近一次抓到</dt><dd>{{fmtTime (ptr .Exam.LastSeenAt)}}</dd>
-    <dt>最近一次变更</dt><dd>{{fmtTime (ptr .Exam.UpdatedAt)}}</dd>
+  <dl class="doc-meta">
+    {{/* The raw date is only worth showing when it says something the parsed
+         date does not — a range, a different calendar format, an ambiguous
+         string. Repeating "2026-05-13（官网原文：2026-05-13）" is noise. */}}
+    <dt>发布</dt><dd class="tabnum">{{fmtDate .Exam.PublishedAt}}{{if and .Exam.PublishedRaw (ne .Exam.PublishedRaw (fmtDate .Exam.PublishedAt))}} <span class="note">（官网原文：{{.Exam.PublishedRaw}}）</span>{{end}}</dd>
+    {{if .Exam.DeadlineAt}}<dt>报名截止</dt><dd class="tabnum"><span class="err">{{fmtDate .Exam.DeadlineAt}}</span></dd>{{end}}
+    <dt>首次抓到</dt><dd class="tabnum">{{fmtDate (ptr .Exam.FirstSeenAt)}} · {{since (ptr .Exam.FirstSeenAt)}}</dd>
+    <dt>最近核对</dt><dd class="tabnum">{{fmtDate (ptr .Exam.LastSeenAt)}} · {{since (ptr .Exam.LastSeenAt)}}</dd>
     <dt>状态</dt><dd>{{if .Exam.IsRead}}已读{{else}}未读{{end}}</dd>
   </dl>
 
-  <div class="actions">
+  <div class="doc-actions">
     <form method="post" action="/exams/{{.Exam.ID}}/read" class="inline">
       <input type="hidden" name="read" value="{{if .Exam.IsRead}}0{{else}}1{{end}}">
       <input type="hidden" name="next" value="/exams/{{.Exam.ID}}">
-      <button type="submit">{{if .Exam.IsRead}}标记为未读{{else}}标记为已读{{end}}</button>
+      <button class="btn" type="submit">{{if .Exam.IsRead}}标记为未读{{else}}标记为已读{{end}}</button>
     </form>
-    {{if .Exam.URL}}
-      <a class="btn" href="{{.Exam.URL}}" target="_blank" rel="noopener noreferrer">查看原文 ↗</a>
-    {{end}}
+    {{if .Exam.URL}}<a class="btn" href="{{.Exam.URL}}" target="_blank" rel="noopener noreferrer">查看官网原文 ↗</a>{{end}}
     <a class="btn" href="/">返回列表</a>
   </div>
 
   {{if .Exam.Content}}
-    <div class="body-text">{{.Exam.Content}}</div>
+    <div class="doc-body">{{range paragraphs .Exam.Content}}<p>{{.}}</p>{{end}}</div>
   {{else if .Exam.Summary}}
-    <div class="body-text">{{.Exam.Summary}}</div>
-    <p class="note">正文尚未抓取（列表页字段未变化时会跳过详情页抓取）。</p>
+    <div class="doc-body"><p>{{.Exam.Summary}}</p></div>
+    <p class="note">正文尚未抓取。列表字段没有变化时会跳过详情页，所以这是正常的。</p>
   {{else}}
-    <p class="note">暂无正文内容。</p>
+    <p class="note">这条公告没有正文，点击上方链接看官网原文。</p>
   {{end}}
 </article>
 
-<h2 class="section-title">变更历史</h2>
+<h3 class="section-label">变更记录</h3>
 {{if .Changes}}
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr><th>时间</th><th>类型</th><th>变化的字段</th></tr>
-    </thead>
-    <tbody>
-      {{range .Changes}}
-      <tr>
-        <td class="num">{{fmtTime (ptr .CreatedAt)}}</td>
-        <td>
-          {{if eq .ChangeType "created"}}
-            <span class="pill ok">首次抓取</span>
-          {{else}}
-            <span class="pill warn">内容更新</span>
-          {{end}}
-        </td>
-        <td>
-          {{if .ChangedFields}}
-            {{range .ChangedFields}}<span class="badge">{{fieldLabel .}}</span> {{end}}
-          {{else}}
-            <span class="note">—</span>
-          {{end}}
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
+<ul class="revisions">
+  {{range .Changes}}
+  <li>
+    <span class="when">{{fmtDate (ptr .CreatedAt)}}</span>
+    <span>{{if eq .ChangeType "created"}}首次抓到{{else}}有更新{{end}}</span>
+    <span class="what">{{if .ChangedFields}}改动了 {{join (fieldLabels .ChangedFields)}}{{else}}—{{end}}</span>
+  </li>
+  {{end}}
+</ul>
 {{else}}
-<p class="note">暂无变更记录。</p>
+<p class="note" style="margin-top:14px">这条公告还没有变更记录。</p>
 {{end}}
 
 {{template "foot" .}}

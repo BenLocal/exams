@@ -166,9 +166,21 @@ func itemFromRow(row *goquery.Selection, linkSel string, cfg listPageConfig, pag
 	}
 	publishedAt, publishedRaw := parseDate(dateSource, cfg.DatePattern, f.Loc())
 
-	summary := strings.TrimSpace(row.Text())
-	if len(summary) > 300 {
-		summary = summary[:300]
+	// A list row's text is the link text followed by the date, so using it
+	// verbatim produces a "summary" that is just the title again with a date
+	// stuck to it. Strip both and keep only what is genuinely additional.
+	summary := model.NormalizeText(row.Text())
+	summary = strings.Replace(summary, model.NormalizeText(title), "", 1)
+	if publishedRaw != "" {
+		summary = strings.Replace(summary, publishedRaw, "", 1)
+	}
+	summary = strings.Trim(strings.TrimSpace(summary), "·-—|")
+	// Too short to be prose: it is layout debris, not a summary.
+	if len([]rune(summary)) < 12 {
+		summary = ""
+	}
+	if len([]rune(summary)) > 300 {
+		summary = string([]rune(summary)[:300])
 	}
 
 	return model.Item{
@@ -177,7 +189,7 @@ func itemFromRow(row *goquery.Selection, linkSel string, cfg listPageConfig, pag
 		ExternalID:   abs,
 		Title:        model.NormalizeText(title),
 		URL:          abs,
-		Summary:      model.NormalizeText(summary),
+		Summary:      summary,
 		Category:     cfg.Category,
 		Region:       cfg.Region,
 		PublishedAt:  publishedAt,

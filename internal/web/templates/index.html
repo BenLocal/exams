@@ -1,61 +1,77 @@
 {{template "head" .}}
 
-<form class="filters" method="get" action="/">
-  <input type="search" name="q" value="{{.Filter.Query}}" placeholder="搜索标题、摘要或正文…" aria-label="搜索">
-  {{/* Carry the active facets through a search so it narrows rather than resets. */}}
+<form class="search" method="get" action="/">
+  <input type="search" name="q" value="{{.Filter.Query}}"
+         placeholder="搜索标题、摘要或正文" aria-label="搜索公告">
+  {{/* Carry the active facets through a search so it narrows the current
+       view instead of quietly resetting it. */}}
   {{if .Filter.Source}}<input type="hidden" name="source" value="{{.Filter.Source}}">{{end}}
   {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
   {{if .Filter.Region}}<input type="hidden" name="region" value="{{.Filter.Region}}">{{end}}
   {{if .Filter.Unread}}<input type="hidden" name="unread" value="1">{{end}}
-  <button class="primary" type="submit">搜索</button>
-  {{if .HasFilters}}<a class="btn" href="/">清除筛选</a>{{end}}
+  <button class="btn" type="submit">搜索</button>
+  {{if .HasFilters}}<a class="btn" href="/">清除</a>{{end}}
 </form>
 
+{{/* Facets are set as an index of the board rather than as filter chips: one
+       line per dimension, values told apart by weight and colour alone. */}}
 {{if .Facets.Categories}}
-<div class="chips">
-  <span class="chips-label">分类</span>
+<div class="facets">
+  <span class="facets-label">分类</span>
   {{range .Facets.Categories}}
-    <a class="chip {{if $.IsActive "category" .Value}}on{{end}}"
+    <a class="facet" aria-current="{{if $.IsActive "category" .Value}}true{{else}}false{{end}}"
        href="{{$.ToggleURL "category" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
   {{end}}
 </div>
 {{end}}
 
 {{if .Facets.Regions}}
-<div class="chips">
-  <span class="chips-label">地区</span>
+<div class="facets">
+  <span class="facets-label">地区</span>
   {{range .Facets.Regions}}
-    <a class="chip {{if $.IsActive "region" .Value}}on{{end}}"
+    <a class="facet" aria-current="{{if $.IsActive "region" .Value}}true{{else}}false{{end}}"
        href="{{$.ToggleURL "region" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
   {{end}}
 </div>
 {{end}}
 
 {{if .Facets.Sources}}
-<div class="chips">
-  <span class="chips-label">来源</span>
+<div class="facets">
+  <span class="facets-label">来源</span>
   {{range .Facets.Sources}}
-    <a class="chip {{if $.IsActive "source" .Value}}on{{end}}"
+    <a class="facet" aria-current="{{if $.IsActive "source" .Value}}true{{else}}false{{end}}"
        href="{{$.ToggleURL "source" .Value}}">{{.Value}}<span class="n">{{.Count}}</span></a>
   {{end}}
-  <a class="chip {{if .IsActive "unread" "1"}}on{{end}}"
-     href="{{.ToggleURL "unread" "1"}}">仅未读<span class="n">{{.Stats.UnreadExams}}</span></a>
 </div>
 {{end}}
 
+{{/* Its own row: sitting at the end of the 来源 row made it read as a source
+     named 仅未读. */}}
+<div class="facets">
+  <span class="facets-label">状态</span>
+  <a class="facet" aria-current="{{if .IsActive "unread" "1"}}true{{else}}false{{end}}"
+     href="{{.ToggleURL "unread" "1"}}">仅未读<span class="n">{{.Stats.UnreadExams}}</span></a>
+</div>
+
 {{if .Page.Items}}
-<ul class="list">
+<ul class="notices">
   {{range .Page.Items}}
-  <li class="item {{if not .IsRead}}unread{{end}}">
-    <a class="item-title" href="/exams/{{.ID}}">{{.Title}}</a>
-    <div class="item-meta">
-      <span class="badge src">{{dash .SourceName}}</span>
-      {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
-      {{if .Region}}<span class="badge">{{.Region}}</span>{{end}}
-      <span>发布 {{fmtTime .PublishedAt}}</span>
-      {{if .DeadlineAt}}<span class="deadline">报名截止 {{fmtTime .DeadlineAt}}</span>{{end}}
-    </div>
-    {{if .Summary}}<p class="item-summary">{{.Summary}}</p>{{end}}
+  {{/* An unread notice hangs a seal-red tick off the margin rule; a read one
+       does not. See .unread-mark in the stylesheet. */}}
+  <li class="notice {{if .IsRead}}is-read{{else}}unread-mark{{end}}">
+    <p class="eyebrow">
+      {{dash .SourceName}}{{if .Category}}<span class="sep">·</span>{{.Category}}{{end}}{{if .Region}}<span class="sep">·</span>{{.Region}}{{end}}
+    </p>
+    <h2 class="notice-title"><a href="/exams/{{.ID}}">{{.Title}}</a></h2>
+    {{/* A summary that merely restates the title is worse than no summary.
+         Rows scraped before the collectors learned to strip the title and the
+         date still carry one; the guard is cheap and covers any source that
+         formats its list rows the same way. */}}
+    {{if and .Summary (not (hasPrefix .Summary .Title))}}<p class="notice-summary">{{.Summary}}</p>{{end}}
+    <p class="notice-meta">
+      发布 {{fmtDate .PublishedAt}}
+      {{if .DeadlineAt}}<span class="due"> · 报名截止 {{fmtDate .DeadlineAt}}</span>{{end}}
+    </p>
   </li>
   {{end}}
 </ul>
@@ -64,13 +80,10 @@
 <nav class="pager" aria-label="分页">
   {{if .Page.HasPrev}}<a href="{{.PageURL (sub .Page.Page 1)}}">上一页</a>{{end}}
   {{range .PageNumbers}}
-    {{if eq . $.Page.Page}}
-      <span class="cur">{{.}}</span>
-    {{else}}
-      <a href="{{$.PageURL .}}">{{.}}</a>
-    {{end}}
+    {{if eq . $.Page.Page}}<span class="cur" aria-current="page">{{.}}</span>
+    {{else}}<a href="{{$.PageURL .}}">{{.}}</a>{{end}}
   {{end}}
-  {{if .Page.HasNext}}<a href="{{.PageURL (add .Page.Page 1)}}">下一页</a>{{end}}
+  {{if .Page.HasNext}}<a href="{{$.PageURL (add .Page.Page 1)}}">下一页</a>{{end}}
   <span class="pager-info">共 {{.Page.Total}} 条 · 第 {{.Page.Page}}/{{.Page.TotalPages}} 页</span>
 </nav>
 {{end}}
@@ -78,12 +91,13 @@
 {{else}}
 <div class="empty">
   {{if .HasFilters}}
-    <p>没有匹配的考试信息。</p>
-    <p><a href="/">清除筛选条件</a></p>
+    <p>没有符合当前条件的公告。</p>
+    <p><a href="/">清除全部筛选</a></p>
+  {{else if eq .Stats.TotalExams 0}}
+    <p>还没有抓到任何公告。</p>
+    <p>到<a href="/runs">抓取日志</a>点「立即抓取」跑一次，或先确认来源已启用。</p>
   {{else}}
-    <p>还没有抓取到任何考试信息。</p>
-    <p>到 <a href="/runs">抓取任务</a> 页面点「立即抓取」，
-       或确认数据源已启用（<a href="/sources">数据源</a>）。</p>
+    <p>没有匹配的公告，试着换个关键词。</p>
   {{end}}
 </div>
 {{end}}
